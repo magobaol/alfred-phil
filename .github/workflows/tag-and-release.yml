@@ -1,0 +1,105 @@
+# I tried to use the actions stefanzweifel/git-auto-commit-action to push the commit after bumping
+# the version in the Alfred workflow, and the mathieudutour/github-tag-action to push the tag
+# but the whole thing kept not working because in some way the most recent commit didn't appear in
+# the following actions/checkout call (right before the release)
+# So I kept ending with the tag applied to the second to last commit.
+# Someone says that the problem is in the actions/checkout https://github.com/actions/checkout/issues/439
+# but I'm not 100% sure.
+#
+# After countless tries I got bored and decided to do things more manually, therefore:
+# - Checkout the code
+# - Use mathieudutour/github-tag-action in dry_run mode to get the new tag, because I need it
+#   to update the Alfred Workflow
+# - Update the Alfred Workflow version, commit, tag and push "manually"
+# - Create the build and the workflow package
+# - Create the final release using the tag obtained before with the dry_run of mathieudutour/github-tag-action
+
+name: Tag and create draft release
+permissions:
+  contents: write
+on:
+  workflow_dispatch:
+    inputs:
+      releaseType:
+        description: 'Release type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.PAT }}
+
+      - name: Set the git username and email automatically
+        uses: fregante/setup-git-user@v2
+
+      - name: Get the new tag without applying it (dry run)
+        id: tag_version_dry
+        uses: mathieudutour/github-tag-action@v6.1
+        with:
+          default_bump: ${{ inputs.releaseType }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          dry_run: true
+          tag_prefix:
+
+      - name: Install xmlstarlet
+        run: sudo apt-get install -y xmlstarlet
+
+      - name: Update Alfred Workflow version
+        run: |
+          INFO_PLIST_PATH="./alfred-workflow/info.plist"
+          NEW_VERSION="${{ steps.tag_version_dry.outputs.new_tag }}"
+          xmlstarlet ed -P --inplace -u "/plist/dict/key[text()='version']/following-sibling::string[1]" -v "${NEW_VERSION}" "${INFO_PLIST_PATH}"
+
+      - name: Update package.json version
+        run: jq '.version = "${{ steps.tag_version_dry.outputs.new_tag }}"' package.json > tmp.json && mv tmp.json package.json
+
+      - name: Commit, push and tag the updated files
+        run: |
+          git add .
+          git commit -m "Update package.json and Alfred Workflow version to ${{ steps.tag_version_dry.outputs.new_tag }}"
+          git push --force
+          git tag v${{ steps.tag_version_dry.outputs.new_tag }}
+          git push --force --tags
+
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build the release
+        run: npm run release
+
+      - name: GH Release
+        uses: softprops/action-gh-release@v0.1.15
+        with:
+          tag_name: v${{ steps.tag_version_dry.outputs.new_tag }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: ./dist/alfred-phil.alfredworkflow
+          draft: true
+
+      # Since we run this after creating the release draft, the release notes
+      # are going to end up in that draft. If there's more than a draft release,
+      # it won't work
+      - name: Generate release notes
+        id: release-notes
+        uses: release-drafter/release-drafter@v5.21.1
+        with:
+          tag: v${{ steps.tag_version_dry.outputs.new_tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

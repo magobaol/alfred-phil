@@ -4,3 +4,4 @@ dist
 bin
 *.iml
 lib
+alfred-workflow/prefs.plist
