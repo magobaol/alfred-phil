@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "webpack --config webpack.dev.js",
+    "build": "./scripts/build.sh",
     "release": "./scripts/release.sh",
     "clean-release": "rm -rf dist",
     "clean-build": "rm -rf alfred-workflow/bin/*",
@@ -18,9 +18,7 @@
     "@types/node": "^18.15.3",
     "path": "^0.12.7",
     "ts-loader": "^9.4.2",
-    "ts-node": "^10.9.1",
-    "webpack": "^5.76.2",
-    "webpack-cli": "^5.0.1"
+    "ts-node": "^10.9.1"
   },
   "dependencies": {
     "@magobaol/phil": "^1.0.6",
