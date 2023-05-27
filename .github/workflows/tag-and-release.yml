@@ -63,11 +63,15 @@ jobs:
       - name: Update package.json version
         run: jq '.version = "${{ steps.tag_version_dry.outputs.new_tag }}"' package.json > tmp.json && mv tmp.json package.json
 
-      - name: Commit, push and tag the updated files
+      - name: Commit and push the updated files
+        if: github.ref == 'refs/heads/main'
         run: |
           git add .
           git commit -m "Update package.json and Alfred Workflow version to ${{ steps.tag_version_dry.outputs.new_tag }}"
           git push --force
+
+      - name: Tag the release
+        run: |
           git tag v${{ steps.tag_version_dry.outputs.new_tag }}
           git push --force --tags
 
