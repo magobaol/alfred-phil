@@ -1770,7 +1770,7 @@ Hit "Enter" to copy the text to the clipboard, or hold ⌥ while hitting enter t
 		<string>https://github.com/magobaol/alfred-phil#requirements</string>
 	</dict>
 	<key>version</key>
-	<string>1.0.1</string>
+	<string>1.0.2</string>
 	<key>webaddress</key>
 	<string>https://github.com/magobaol/alfred-phil</string>
 </dict>
